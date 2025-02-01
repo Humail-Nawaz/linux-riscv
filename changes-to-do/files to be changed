@@ -1,0 +1,77 @@
+1. //Modify the CPU Scheduler (CFS)
+Files to modify:
+kernel/sched/fair.c → Modify select_task_rq_fair(), task_hot(), and find_idlest_group()
+kernel/sched/core.c → Modify schedule(), pick_next_task()
+include/linux/sched.h → Add power-related attributes to struct task_struct
+
+2. //Add Energy-Aware Scheduling Policy
+Files to modify:
+kernel/sched/sched.h → Define energy-aware scheduling attributes.
+kernel/sched/topology.c → Modify sched_domain to distinguish Boom & Rocket.
+Modify kernel/sched/fair.c to include energy-aware load balancing:
+
+/* Example: Modify select_task_rq_fair() in kernel/sched/fair.c
+c
+Copy
+Edit
+static int select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_flags) {
+    int boom_core = 0;   // Assign Boom core ID
+    int rocket_core = 1; // Assign Rocket core ID
+    int target_cpu;
+
+    if (p->energy_sensitive) { // Assume energy-sensitive tasks have this flag
+        target_cpu = rocket_core; // Prefer Rocket for energy efficiency
+    } else {
+        target_cpu = boom_core; // Prefer Boom for high performance
+    }
+
+    return target_cpu;
+}*/
+
+3. //Modify Task Struct to Include Energy Sensitivity
+Modify include/linux/sched.h:
+
+/*struct task_struct {
+    ...
+    bool energy_sensitive; // New flag for energy-aware scheduling
+};*/
+
+Modify fs/proc/base.c to expose it in /proc:
+/*static int proc_energy_sensitive_show(struct seq_file *m, void *v) {
+    struct task_struct *task = m->private;
+    seq_printf(m, "%d\n", task->energy_sensitive);
+    return 0;
+}*/
+
+4. //Implement Power Profiling for Dynamic Task Migration
+Modify kernel/sched/fair.c to introduce runtime power monitoring:
+/*static void monitor_power_usage(void) {
+    u64 boom_power = read_energy_counters(boom_core);
+    u64 rocket_power = read_energy_counters(rocket_core);
+
+    if (boom_power > THRESHOLD) {
+        migrate_tasks_to_rocket();
+    }
+}*/
+
+5. //Modify Kernel Boot Parameters to Define Core Roles
+Modify arch/riscv/kernel/setup.c:
+/*static int __init define_core_roles(void) {
+    boom_core = 0;  // High-performance
+    rocket_core = 1; // Low-power
+    return 0;
+}*/
+
+Register this function:
+ //early_initcall(define_core_roles);
+
+6. //Implement Migration Between Boom & Rocket Dynamically
+Modify kernel/sched/core.c:
+/*static void migrate_tasks_to_rocket(void) {
+    struct task_struct *p;
+    for_each_process(p) {
+        if (p->energy_sensitive && task_cpu(p) != rocket_core) {
+            set_task_cpu(p, rocket_core);
+        }
+    }
+}*/
