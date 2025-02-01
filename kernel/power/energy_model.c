@@ -7,26 +7,53 @@
  * Improvements provided by: Lukasz Luba, Arm ltd.
  */
 
-#define pr_fmt(fmt) "energy_model: " fmt
-
-#include <linux/cpu.h>
-#include <linux/cpufreq.h>
+#define pr_fmt(fmt) "energy_model: " fmt   //a macros that prepend a prefix "energy model:"
+//to all messages logged using pr_fmt(fmt) logging macros in the file
+#include <linux/cpu.h>  
+#include <linux/cpufreq.h> 
 #include <linux/cpumask.h>
 #include <linux/debugfs.h>
 #include <linux/energy_model.h>
 #include <linux/sched/topology.h>
-#include <linux/slab.h>
+#include <linux/slab.h>  //provides kernel dynamic memory allocation (kmalloc, kfree)
 
 /*
  * Mutex serializing the registrations of performance domains and letting
  * callbacks defined by drivers sleep.
  */
-static DEFINE_MUTEX(em_pd_mutex);
+static DEFINE_MUTEX(em_pd_mutex);  /*static mutex (mutual exclusive) declaration and
+initialization used to ensure shared data access by singlee thread or process at a time.
+This mutex (em_pd_mutex) is likely used to protect access to shared data structures or
+resources related to Energy Model Power Domains (PD) in the energy model subsystem.*/
 
 static void em_cpufreq_update_efficiencies(struct device *dev,
-					   struct em_perf_state *table);
+					struct em_perf_state *table);
+/*This function likely updates the efficiency values of performance states for CPUs
+in the energy model when using the CPU frequency (cpufreq) subsystem.The function 
+em_cpufreq_update_efficiencies is likely used to recompute the 
+efficiency values of the CPU's performance states when certain conditions changes:
+A change in the CPU frequency scaling driver or governor.
+A dynamic adjustment in power measurements for the CPU (e.g., due to temperature or 
+voltage changes).
+=>> Efficiency= Power/Performance
+The energy model uses these efficiencies to decide how to schedule tasks across CPUs,
+aiming for optimal energy usage.*/
+
 static void em_check_capacity_update(void);
-static void em_update_workfn(struct work_struct *work);
+/*em_check_capacity_update is a helper function to ensure that CPU capacities in the
+energy model are up-to-date and accurate. By keeping capacity values consistent with 
+the system's current state, this function ensures that energy-aware scheduling and 
+power management decisions remain efficient and effective.*/
+
+static void em_update_workfn(struct work_struct *work);/* workqueue function
+In the Linux kernel, workqueues are used to schedule tasks (work) that should be done later, not immediately. 
+this function updates the energy model by handling work_struct structure that represents
+a single unit of work to be executed by kernel thread.
+Kernel Thread: A thread running in kernel space to handle system tasks. It can execute in the background and doesn't block other critical kernel operations.
+Current Code Path: The sequence of instructions the kernel is executing at a given moment, like handling an interrupt or processing a system call.
+Workqueue: A mechanism to defer long tasks so that they are handled later by a kernel thread. This avoids blocking the current code path (like interrupt handlers) and helps keep the system responsive.
+By using workqueues and kernel threads, Linux can ensure that slow tasks are processed asynchronously without interfering with the kernel’s real-time, high-priority functions.*/
+
 static DECLARE_DELAYED_WORK(em_update_work, em_update_workfn);
 
 static bool _is_cpu_device(struct device *dev)
